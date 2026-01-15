@@ -9,7 +9,6 @@ import com.okbank.fintech.global.security.CustomUserDetailsService;
 import com.okbank.fintech.global.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -18,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -28,9 +26,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService customUserDetailsService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, String> redisTemplate;
-
-    private static final String REFRESH_TOKEN_PREFIX = "RT:";
+    private final RefreshTokenService refreshTokenService;
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
@@ -57,13 +53,7 @@ public class AuthService {
             String refreshToken = jwtTokenProvider.createRefreshToken(userDetails.getUsername());
 
             //6. Refresh Token을 Redis에 저장
-            redisTemplate.opsForValue().set(
-                    REFRESH_TOKEN_PREFIX + userDetails.getUsername(),
-                    refreshToken,
-                    jwtTokenProvider.getRefreshTokenValidity(),
-                    TimeUnit.MILLISECONDS
-            );
-            log.debug("Refresh Token 저장: mobile={}", userDetails.getUsername());
+            refreshTokenService.save(refreshToken, userDetails);
 
             return TokenResponse.from(userDetails, accessToken, refreshToken);
 
@@ -87,10 +77,10 @@ public class AuthService {
             String mobile = jwtTokenProvider.getMobile(refreshToken);
 
             //3. Redis에서 저장된 Refresh Token 조회 및 비교
-            String storedRefreshToken = redisTemplate.opsForValue().get(REFRESH_TOKEN_PREFIX + mobile);
+            String storedRefreshToken = refreshTokenService.getRefreshToken(mobile);
             if(Objects.isNull(storedRefreshToken))
                 throw new UnauthorizedException("Refresh Token을 찾을 수 없습니다. 다시 로그인해주세요");
-            if(Objects.equals(refreshToken, storedRefreshToken))
+            if(!Objects.equals(refreshToken, storedRefreshToken))
                 throw new UnauthorizedException("유효하지 않은 Refresh Token 입니다");
 
             //4. CustomUserDetails 로드(최신 사용자 정보)
@@ -101,16 +91,14 @@ public class AuthService {
 
             //6. 새로운 Access Token 생성
             String newAccessToken = jwtTokenProvider.createAccessToken(userDetails);
+            String newRefreshToken = jwtTokenProvider.createRefreshToken(userDetails.getUsername());
 
             log.debug("토큰 재발급 완료: mobile={}", mobile);
 
-            return TokenResponse.builder()
-                    .accessToken(newAccessToken)
-                    .refreshToken(refreshToken)
-                    .mobile(userDetails.getUsername())
-                    .name(userDetails.getName())
-                    .role(userDetails.getUserRole())
-                    .build();
+            //7. 재발급된 Refresh Token을 Redis에 저장
+            refreshTokenService.save(newRefreshToken, userDetails);
+
+            return TokenResponse.from(userDetails, newAccessToken, newRefreshToken);
         } catch (UnauthorizedException e) {
             log.error("토큰 재발급 실패: {}", e.getMessage());
             throw e;
@@ -125,8 +113,7 @@ public class AuthService {
         log.info("로그아웃: mobile={}", mobile);
 
         try {
-            redisTemplate.delete(REFRESH_TOKEN_PREFIX + mobile);
-            log.debug("Refresh Token 삭제: mobile={}", mobile);
+            refreshTokenService.delete(mobile);
 
             //SecurityContext 초기화
             SecurityContextHolder.clearContext();

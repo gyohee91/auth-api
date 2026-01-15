@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
 import java.util.stream.Collectors;
@@ -56,15 +57,16 @@ public class JwtTokenProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        long now = System.currentTimeMillis();
-        Date validity = new Date(now + jwtProperties.accessTokenValidity()); // 1 hour validity
+        Instant now = Instant.now();
 
         return Jwts.builder()
                 .subject(userDetails.getUsername())
                 .claim("auth", authoritiesStr)
                 .claim("type", "access")
-                .issuedAt(new Date(now))
-                .expiration(validity)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(
+                        Instant.now().plusSeconds(jwtProperties.accessTokenValidity())  // 1 hour validity
+                ))
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
@@ -76,14 +78,15 @@ public class JwtTokenProvider {
      * @return
      */
     public String createRefreshToken(String userId) {
-        long now = System.currentTimeMillis();
-        Date validity = new Date(now + jwtProperties.refreshTokenValidity()); // 7 days validity
+        Instant now = Instant.now();
 
         return Jwts.builder()
                 .subject(userId)
                 .claim("type", "refresh")
-                .issuedAt(new Date(now))
-                .expiration(validity)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(
+                        Instant.now().plusSeconds(jwtProperties.refreshTokenValidity()) // 7 days validity
+                ))
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }

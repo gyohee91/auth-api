@@ -62,6 +62,11 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<DataResponse<TokenResponse>> refreshToken(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "토큰 재발급 요청",
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = RefreshTokenRequest.class))
+            )
             @Valid @RequestBody RefreshTokenRequest request
     ) {
         log.info("토큰 재발급 요청");
