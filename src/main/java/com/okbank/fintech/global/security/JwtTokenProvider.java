@@ -108,7 +108,7 @@ public class JwtTokenProvider {
 
             return new UsernamePasswordAuthenticationToken(
                     userDetails,
-                    token,
+                    null,
                     userDetails.getAuthorities()
             );
         } catch (Exception e) {

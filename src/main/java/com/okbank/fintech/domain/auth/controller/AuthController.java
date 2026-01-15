@@ -42,6 +42,10 @@ public class AuthController {
             @ApiResponse(
                     responseCode = "401",
                     description = "인증 실패 - Mobile 또는 password 불일치"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "인증 실패 - 사용자 정보 없음"
             )
     })
     @PostMapping("/login")

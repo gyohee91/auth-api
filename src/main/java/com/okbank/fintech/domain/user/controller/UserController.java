@@ -1,10 +1,13 @@
 package com.okbank.fintech.domain.user.controller;
 
-import com.okbank.fintech.domain.user.dto.UserCreateRequest;
 import com.okbank.fintech.domain.auth.dto.UserResponse;
+import com.okbank.fintech.domain.user.dto.UserCreateRequest;
 import com.okbank.fintech.domain.user.service.UserService;
 import com.okbank.fintech.global.common.DataResponse;
+import com.okbank.fintech.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,10 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "User", description = "사용자 관리 API")
 @Slf4j
@@ -55,5 +56,34 @@ public class UserController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(DataResponse.success("회원가입이 완료되었습니다", response));
+    }
+
+    @Operation(summary = "내 정보 조회", description = "내 정보를 조회합니다")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "내 정보 조회 성공",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 - Access Token 없음 또는 만료"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "접근 권한 없음"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "사용자 정보 없음"
+            )
+    })
+    @GetMapping("/me")
+    public ResponseEntity<DataResponse<UserResponse>> me(
+            @AuthenticationPrincipal CustomUserDetails user
+    ) {
+        UserResponse response = userService.getMe(user.getUsername());
+
+        return ResponseEntity.ok(DataResponse.success("조회 성공", response));
     }
 }

@@ -16,6 +16,13 @@ public class UserService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
 
+    public UserResponse getMe(String mobile) {
+        Member member = memberRepository.findByMobile(mobile)
+                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
+
+        return UserResponse.from(member);
+    }
+
     @Transactional
     public UserResponse createUser(UserCreateRequest request) {
         //사용자 중복 체크

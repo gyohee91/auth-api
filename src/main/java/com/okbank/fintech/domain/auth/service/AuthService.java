@@ -30,37 +30,31 @@ public class AuthService {
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
-        try {
-            //1. 사용자 인증
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getMobile(),
-                            request.getPassword()
-                    )
-            );
+        //1. 사용자 인증
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getMobile(),
+                        request.getPassword()
+                )
+        );
 
-            //2. CustomUserDetails 추출
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        //2. CustomUserDetails 추출
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-            //3. 사용자 상태 확인
-            this.validateUserStatus(userDetails);
+        //3. 사용자 상태 확인
+        this.validateUserStatus(userDetails);
 
-            //4. SecurityContext에 인증 정보 저장
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        //4. SecurityContext에 인증 정보 저장
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            //5. Jwt 토큰 생성
-            String accessToken = jwtTokenProvider.createAccessToken(userDetails);
-            String refreshToken = jwtTokenProvider.createRefreshToken(userDetails.getUsername());
+        //5. Jwt 토큰 생성
+        String accessToken = jwtTokenProvider.createAccessToken(userDetails);
+        String refreshToken = jwtTokenProvider.createRefreshToken(userDetails.getUsername());
 
-            //6. Refresh Token을 Redis에 저장
-            refreshTokenService.save(refreshToken, userDetails);
+        //6. Refresh Token을 Redis에 저장
+        refreshTokenService.save(refreshToken, userDetails);
 
-            return TokenResponse.from(userDetails, accessToken, refreshToken);
-
-        } catch(Exception e) {
-            log.error("로그인 실패: mobile={}, reason={}", request.getMobile(), e.getMessage(), e);
-            throw new RuntimeException("Mobile Number 또는 password가 일치하지 않습니다.");
-        }
+        return TokenResponse.from(userDetails, accessToken, refreshToken);
     }
 
     @Transactional
