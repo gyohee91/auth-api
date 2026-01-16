@@ -3,6 +3,7 @@ package com.okbank.fintech.domain.auth.service;
 import com.okbank.fintech.domain.auth.dto.LoginRequest;
 import com.okbank.fintech.domain.auth.dto.TokenResponse;
 import com.okbank.fintech.domain.user.entity.UserStatus;
+import com.okbank.fintech.domain.user.repository.MemberRepository;
 import com.okbank.fintech.global.exception.UnauthorizedException;
 import com.okbank.fintech.global.security.CustomUserDetails;
 import com.okbank.fintech.global.security.CustomUserDetailsService;
@@ -28,6 +29,14 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
 
+    private final MemberRepository memberRepository;
+
+    /**
+     * 로그인
+     *
+     * @param request   로그인 정보
+     * @return
+     */
     @Transactional
     public TokenResponse login(LoginRequest request) {
         //1. 사용자 인증
@@ -41,22 +50,25 @@ public class AuthService {
         //2. CustomUserDetails 추출
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
-        //3. 사용자 상태 확인
-        this.validateUserStatus(userDetails);
-
-        //4. SecurityContext에 인증 정보 저장
+        //3. SecurityContext에 인증 정보 저장
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        //5. Jwt 토큰 생성
+        //4. Jwt 토큰 생성
         String accessToken = jwtTokenProvider.createAccessToken(userDetails);
         String refreshToken = jwtTokenProvider.createRefreshToken(userDetails.getUsername());
 
-        //6. Refresh Token을 Redis에 저장
+        //5. Refresh Token을 Redis에 저장
         refreshTokenService.save(refreshToken, userDetails);
 
         return TokenResponse.from(userDetails, accessToken, refreshToken);
     }
 
+    /**
+     * 토큰 재발급
+     *
+     * @param refreshToken  이전 리프레시 토큰
+     * @return
+     */
     @Transactional
     public TokenResponse refreshToken(String refreshToken) {
         log.info("토큰 재발급 시도");
@@ -78,7 +90,10 @@ public class AuthService {
                 throw new UnauthorizedException("유효하지 않은 Refresh Token 입니다");
 
             //4. CustomUserDetails 로드(최신 사용자 정보)
-            CustomUserDetails userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(mobile);
+            CustomUserDetails userDetails = (CustomUserDetails) SecurityContextHolder
+                    .getContext()
+                    .getAuthentication()
+                    .getPrincipal();
 
             //5. 사용자 상태 확인
             this.validateUserStatus(userDetails);

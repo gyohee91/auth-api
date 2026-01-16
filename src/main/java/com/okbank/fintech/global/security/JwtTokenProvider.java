@@ -48,8 +48,7 @@ public class JwtTokenProvider {
     /**
      * Access Token 생성
      *
-     * @param userId
-     * @param authorities
+     * @param userDetails
      * @return
      */
     public String createAccessToken(CustomUserDetails userDetails) {

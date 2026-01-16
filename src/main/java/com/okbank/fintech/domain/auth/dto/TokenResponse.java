@@ -2,6 +2,7 @@ package com.okbank.fintech.domain.auth.dto;
 
 import com.okbank.fintech.domain.user.entity.UserRole;
 import com.okbank.fintech.global.security.CustomUserDetails;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
 @Getter
@@ -9,7 +10,10 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 public class TokenResponse {
+    @Schema(description = "Access Token")
     private String accessToken;
+
+    @Schema(description = "Refresh Token")
     private String refreshToken;
     private String mobile;
     private String name;

@@ -41,11 +41,11 @@ public class AuthController {
             ),
             @ApiResponse(
                     responseCode = "401",
-                    description = "인증 실패 - Mobile 또는 password 불일치"
+                    description = "인증 실패 - 아이디/비밀번호 불일치, 계정 비활성, 잠금, 탈퇴 등"
             ),
             @ApiResponse(
-                    responseCode = "404",
-                    description = "인증 실패 - 사용자 정보 없음"
+                    responseCode = "403",
+                    description = "인증 실패 - 계정이 비활성화 또는 사용 제한 상태"
             )
     })
     @PostMapping("/login")
@@ -65,6 +65,17 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "토큰 재발급 성공",
+                    content = @Content(schema = @Schema(implementation = TokenResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "유효하지 않은 Token"
+            )
+    })
     public ResponseEntity<DataResponse<TokenResponse>> refreshToken(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "토큰 재발급 요청",
