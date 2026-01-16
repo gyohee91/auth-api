@@ -6,6 +6,7 @@ import com.okbank.fintech.domain.user.service.UserService;
 import com.okbank.fintech.global.common.DataResponse;
 import com.okbank.fintech.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -80,9 +81,10 @@ public class UserController {
     })
     @GetMapping("/me")
     public ResponseEntity<DataResponse<UserResponse>> me(
-            @AuthenticationPrincipal CustomUserDetails user
+            @Parameter(hidden = true)
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        UserResponse response = userService.getMe(user.getUsername());
+        UserResponse response = userService.getMe(userDetails.getUsername());
 
         return ResponseEntity.ok(DataResponse.success("조회 성공", response));
     }
@@ -107,6 +109,7 @@ public class UserController {
     })
     @DeleteMapping("/withdraw")
     public ResponseEntity<Void> withdraw(
+            @Parameter(hidden = true)
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         userService.withdraw(userDetails.getUsername());
