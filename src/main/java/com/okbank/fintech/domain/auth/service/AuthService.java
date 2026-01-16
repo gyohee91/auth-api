@@ -73,48 +73,40 @@ public class AuthService {
     public TokenResponse refreshToken(String refreshToken) {
         log.info("토큰 재발급 시도");
 
-        try {
-            //1. Refresh Token 검증
-            if(!jwtTokenProvider.validateToken(refreshToken)) {
-                throw new UnauthorizedException("유효하지 않은 Refresh Token입니다");
-            }
-
-            //2. Refresh Token에서 mobile 추출
-            String mobile = jwtTokenProvider.getMobile(refreshToken);
-
-            //3. Redis에서 저장된 Refresh Token 조회 및 비교
-            String storedRefreshToken = refreshTokenService.getRefreshToken(mobile);
-            if(Objects.isNull(storedRefreshToken))
-                throw new UnauthorizedException("Refresh Token을 찾을 수 없습니다. 다시 로그인해주세요");
-            if(!Objects.equals(refreshToken, storedRefreshToken))
-                throw new UnauthorizedException("유효하지 않은 Refresh Token 입니다");
-
-            //4. CustomUserDetails 로드(최신 사용자 정보)
-            CustomUserDetails userDetails = (CustomUserDetails) SecurityContextHolder
-                    .getContext()
-                    .getAuthentication()
-                    .getPrincipal();
-
-            //5. 사용자 상태 확인
-            this.validateUserStatus(userDetails);
-
-            //6. 새로운 Access Token 생성
-            String newAccessToken = jwtTokenProvider.createAccessToken(userDetails);
-            String newRefreshToken = jwtTokenProvider.createRefreshToken(userDetails.getUsername());
-
-            log.debug("토큰 재발급 완료: mobile={}", mobile);
-
-            //7. 재발급된 Refresh Token을 Redis에 저장
-            refreshTokenService.save(newRefreshToken, userDetails);
-
-            return TokenResponse.from(userDetails, newAccessToken, newRefreshToken);
-        } catch (UnauthorizedException e) {
-            log.error("토큰 재발급 실패: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("토큰 재발급 중 오류 발생", e);
-            throw new UnauthorizedException("토큰 재발급에 실패했습니다");
+        //1. Refresh Token 검증
+        if(!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new UnauthorizedException("유효하지 않은 Refresh Token입니다");
         }
+
+        //2. Refresh Token에서 mobile 추출
+        String mobile = jwtTokenProvider.getMobile(refreshToken);
+
+        //3. Redis에서 저장된 Refresh Token 조회 및 비교
+        String storedRefreshToken = refreshTokenService.getRefreshToken(mobile);
+        if(Objects.isNull(storedRefreshToken))
+            throw new UnauthorizedException("Refresh Token을 찾을 수 없습니다. 다시 로그인해주세요");
+        if(!Objects.equals(refreshToken, storedRefreshToken))
+            throw new UnauthorizedException("유효하지 않은 Refresh Token 입니다");
+
+        //4. CustomUserDetails 로드(최신 사용자 정보)
+        var member = memberRepository.findByMobile(mobile)
+                .orElseThrow(() -> new UnauthorizedException("Invalid Token"));
+
+        CustomUserDetails userDetails = CustomUserDetails.from(member);
+
+        //5. 사용자 상태 확인
+        this.validateUserStatus(userDetails);
+
+        //6. 새로운 Access Token 생성
+        String newAccessToken = jwtTokenProvider.createAccessToken(userDetails);
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(userDetails.getUsername());
+
+        log.debug("토큰 재발급 완료: mobile={}", mobile);
+
+        //7. 재발급된 Refresh Token을 Redis에 저장
+        refreshTokenService.save(newRefreshToken, userDetails);
+
+        return TokenResponse.from(userDetails, newAccessToken, newRefreshToken);
     }
 
     @Transactional

@@ -4,6 +4,9 @@ import com.okbank.fintech.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Comment;
+import org.springframework.security.core.userdetails.User;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -23,6 +26,10 @@ public class Member extends BaseEntity {
     @Comment("이름")
     private String name;
 
+    @Comment("사용 여부")
+    @Builder.Default
+    private Boolean enable = true;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -32,5 +39,17 @@ public class Member extends BaseEntity {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
+
+    @Comment("탈퇴일")
+    private LocalDateTime withdrawAt;
+
+    /**
+     * 탈퇴 처리
+     */
+    public void withdraw() {
+        this.enable = false;
+        this.status = UserStatus.WITHDRAWN;
+        this.withdrawAt = LocalDateTime.now();
+    }
 }
 

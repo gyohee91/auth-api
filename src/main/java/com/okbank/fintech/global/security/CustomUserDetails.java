@@ -18,6 +18,10 @@ import java.util.Objects;
 public class CustomUserDetails implements UserDetails {
     private final Member member;
 
+    public static CustomUserDetails from(Member member) {
+        return new CustomUserDetails(member);
+    }
+
     /**
      * 사용자 권한 목록 반환
      *

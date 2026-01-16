@@ -86,4 +86,31 @@ public class UserController {
 
         return ResponseEntity.ok(DataResponse.success("조회 성공", response));
     }
+
+    @Operation(
+            summary = "회원 탈퇴",
+            description = "현재 로그인한 사용자의 계정을 탈퇴 처리함"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "탈퇴 처리 완료"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음"
+            )
+    })
+    @DeleteMapping("/withdraw")
+    public ResponseEntity<Void> withdraw(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        userService.withdraw(userDetails.getUsername());
+
+        return ResponseEntity.noContent().build();
+    }
 }

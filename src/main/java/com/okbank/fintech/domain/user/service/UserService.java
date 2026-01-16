@@ -1,10 +1,13 @@
 package com.okbank.fintech.domain.user.service;
 
+import com.okbank.fintech.domain.auth.service.RefreshTokenService;
 import com.okbank.fintech.domain.user.dto.UserCreateRequest;
 import com.okbank.fintech.domain.auth.dto.UserResponse;
 import com.okbank.fintech.domain.user.entity.Member;
 import com.okbank.fintech.domain.user.repository.MemberRepository;
 import com.okbank.fintech.global.exception.DuplicateException;
+import com.okbank.fintech.global.exception.UserNotFoundException;
+import com.okbank.fintech.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
+
+    private final RefreshTokenService refreshTokenService;
 
     public UserResponse getMe(String mobile) {
         Member member = memberRepository.findByMobile(mobile)
@@ -38,5 +43,20 @@ public class UserService {
         Member saved = memberRepository.save(member);
 
         return UserResponse.from(saved);
+    }
+
+    /**
+     * 탈퇴 처리
+     *
+     * @param mobile
+     */
+    public void withdraw(String mobile) {
+        var member = memberRepository.findByMobile(mobile)
+                .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다"));
+
+        //탈퇴 처리
+        member.withdraw();
+
+        refreshTokenService.delete(mobile);
     }
 }
