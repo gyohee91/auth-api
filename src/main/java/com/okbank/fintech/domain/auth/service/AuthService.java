@@ -130,9 +130,6 @@ public class AuthService {
      * 사용자 상태 검증
      */
     private void validateUserStatus(CustomUserDetails userDetails) {
-        if (userDetails.getMember().isDeleted()) {
-            throw new UnauthorizedException("탈퇴한 사용자입니다.");
-        }
 
         UserStatus status = userDetails.getUserStatus();
         if (status == UserStatus.SUSPENDED) {

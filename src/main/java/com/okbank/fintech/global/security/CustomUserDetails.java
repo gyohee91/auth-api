@@ -86,7 +86,7 @@ public class CustomUserDetails implements UserDetails {
      */
     @Override
     public boolean isEnabled() {
-        return Objects.equals(member.getStatus(), UserStatus.ACTIVE) && !member.isDeleted();
+        return Objects.equals(member.getStatus(), UserStatus.ACTIVE);
     }
 
     public String getName() {

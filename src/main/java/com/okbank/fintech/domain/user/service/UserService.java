@@ -50,6 +50,7 @@ public class UserService {
      *
      * @param mobile
      */
+    @Transactional
     public void withdraw(String mobile) {
         var member = memberRepository.findByMobile(mobile)
                 .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다"));
@@ -57,6 +58,7 @@ public class UserService {
         //탈퇴 처리
         member.withdraw();
 
+        //refresh token 삭제
         refreshTokenService.delete(mobile);
     }
 }

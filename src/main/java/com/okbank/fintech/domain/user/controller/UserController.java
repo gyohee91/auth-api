@@ -93,7 +93,7 @@ public class UserController {
     )
     @ApiResponses({
             @ApiResponse(
-                    responseCode = "200",
+                    responseCode = "204",
                     description = "탈퇴 처리 완료"
             ),
             @ApiResponse(

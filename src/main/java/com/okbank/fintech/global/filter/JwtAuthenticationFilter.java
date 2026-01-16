@@ -120,11 +120,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @return
      */
     private boolean isUserActive(CustomUserDetails userDetails) {
-        // 삭제된 사용자
-        if(userDetails.getMember().isDeleted()) {
-            return false;
-        }
-
         //비활성 or 정지된 사용자
         UserStatus status = userDetails.getUserStatus();
         return status == UserStatus.ACTIVE;

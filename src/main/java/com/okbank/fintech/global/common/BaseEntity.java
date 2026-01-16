@@ -13,7 +13,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public class BaseEntity extends BaseTimeEntity {
+public abstract class BaseEntity extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -27,21 +27,4 @@ public class BaseEntity extends BaseTimeEntity {
     @LastModifiedBy
     @Column(nullable = false, length = 50)
     private String updatedBy;
-
-    @Column(nullable = false)
-    private boolean deleted = false;
-
-    /**
-     * 엔티티를 삭제 상태로 변경합니다.
-     */
-    public void delete() {
-        this.deleted = true;
-    }
-
-    /**
-     * 삭제된 엔티티를 복원합니다.
-     */
-    public void restore() {
-        this.deleted = false;
-    }
 }
