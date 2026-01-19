@@ -3,6 +3,7 @@ package com.okbank.fintech.global.exception;
 import com.okbank.fintech.global.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final String MDC_REQUEST_ID_KEY = "requestId";
 
     /**
      * 비즈니스 로직 예외
@@ -36,6 +38,7 @@ public class GlobalExceptionHandler {
         log.error("BusinessException: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(e.getStatus().value())
                 .error(e.getStatus().getReasonPhrase())
                 .message(e.getMessage())
@@ -66,6 +69,7 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message(errorMessage)
@@ -94,6 +98,7 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message(errorMessage)
@@ -120,6 +125,7 @@ public class GlobalExceptionHandler {
         log.error("MethodArgumentTypeMismatchException: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message("타입이 일치하지 않습니다: " + e.getName())
@@ -146,6 +152,7 @@ public class GlobalExceptionHandler {
         log.error("BadCredentialsException: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.UNAUTHORIZED.value())
                 .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
                 .message("인증에 실패했습니다")
@@ -172,6 +179,7 @@ public class GlobalExceptionHandler {
         log.error("UnauthorizedException: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.UNAUTHORIZED.value())
                 .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
                 .message(e.getMessage())
@@ -196,6 +204,7 @@ public class GlobalExceptionHandler {
         log.error("AccessDeniedException: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.FORBIDDEN.value())
                 .error(HttpStatus.FORBIDDEN.getReasonPhrase())
                 .message("접근 권한이 없습니다.")
@@ -219,6 +228,7 @@ public class GlobalExceptionHandler {
         log.error("DisabledException: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.FORBIDDEN.value())
                 .error(HttpStatus.FORBIDDEN.getReasonPhrase())
                 .message("비활성화된 계정입니다")
@@ -242,6 +252,7 @@ public class GlobalExceptionHandler {
         log.error("UsernameNotFoundException: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.UNAUTHORIZED.value())
                 .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
                 .message(e.getMessage())
@@ -266,6 +277,7 @@ public class GlobalExceptionHandler {
         log.error("Exception: {}", e.getMessage(), e);
 
         ErrorResponse errorResponse = ErrorResponse.builder()
+                .requestId(MDC.get(MDC_REQUEST_ID_KEY))
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
                 .message("서버 내부에 오류가 발생했습니다.")

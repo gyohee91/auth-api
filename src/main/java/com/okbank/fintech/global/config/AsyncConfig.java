@@ -4,7 +4,6 @@ import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskDecorator;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -29,6 +28,7 @@ public class AsyncConfig {
 
     /**
      * MDC를 비동기 스레드로 전파
+     * static으로 선언하여 재사용 가능
      */
     public static class MdcTaskDecorator implements TaskDecorator {
 

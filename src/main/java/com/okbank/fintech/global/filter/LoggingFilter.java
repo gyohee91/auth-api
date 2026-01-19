@@ -26,6 +26,7 @@ public class LoggingFilter extends OncePerRequestFilter {
     private static final List<String> EXCLUDE_PATHS = Arrays.asList(
             "/v3/api-docs",
             "/swagger-ui",
+            "/h2-console",
             "/actuator/health",
             "/actuator/prometheus",
             "/favicon.ico"

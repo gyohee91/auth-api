@@ -89,14 +89,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String requestURI = request.getRequestURI();
-
-        // 제외할 URL 패턴과 일치하는지 확인
-        boolean shouldExclude = EXCLUDE_URL_PATTERNS.stream()
-                .anyMatch(requestURI::startsWith);
-        if(shouldExclude) {
-            log.debug("JWT 인증 필터 제외 URL: {}", requestURI);
-        }
-        return shouldExclude;
+        return EXCLUDE_URL_PATTERNS.stream().anyMatch(requestURI::startsWith);
     }
 
     /**
