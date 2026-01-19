@@ -1,0 +1,147 @@
+package com.okbank.fintech.global.config;
+
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.reactive.function.client.ClientRequest;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
+
+import java.time.Duration;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
+@Configuration
+public class WebClientConfig {
+    private static final String REQUEST_ID_HEADER = "X-Request-Id";
+    private static final String MDC_REQUEST_ID_KEY = "requestId";
+
+    @Bean
+    public WebClient webClient() {
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
+                .responseTimeout(Duration.ofMillis(30000))
+                .doOnConnected(connection -> connection
+                        .addHandlerLast(new ReadTimeoutHandler(30000, TimeUnit.MILLISECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(30000, TimeUnit.MILLISECONDS))
+                );
+
+        return WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .filter(this.requestIdPropagationiFilter())
+                .filter(this.logRequestFilter())
+                .filter(this.logResponseFilter())
+                .build();
+    }
+
+    /**
+     * RequestId 전파 필터
+     * - MDC에서 추출 또는 신규 생성
+     * - 요청 헤더에 추가
+     */
+    private ExchangeFilterFunction requestIdPropagationiFilter() {
+        return ExchangeFilterFunction.ofRequestProcessor(clientRequest -> {
+            //MDC에 없으면 새로 생성(외부 API 호출이 최초 진입점인 경우)
+            String requestId = Optional.ofNullable(MDC.get(MDC_REQUEST_ID_KEY))
+                    .filter(id -> !id.isBlank())
+                    .orElse("EXTERNAL-" + UUID.randomUUID());
+
+            //RequestId를 헤더에 추가
+            ClientRequest newRequest = ClientRequest.from(clientRequest)
+                    .header(REQUEST_ID_HEADER, requestId)
+                    .build();
+
+            //Reactor Context에도 저장(하위 체인에서 사용 가능)
+            return Mono.just(newRequest)
+                    .contextWrite(context -> context.put(MDC_REQUEST_ID_KEY, requestId));
+        });
+    }
+
+    /**
+     * 요청 로깅 필터
+     * - 요청 정보 로깅
+     * - startTime 저장
+     */
+    private ExchangeFilterFunction logRequestFilter() {
+        return ExchangeFilterFunction.ofRequestProcessor(clientRequest ->
+                Mono.deferContextual(contextView -> {
+                    long startTime = System.currentTimeMillis();
+                    String requestId = contextView.getOrDefault(MDC_REQUEST_ID_KEY, "UNKNOWN");
+
+                    log.info(">>> External API Request [{}] {} {} - Headers: {}",
+                            requestId,
+                            clientRequest.method(),
+                            clientRequest.url(),
+                            clientRequest.headers()
+                    );
+
+                    return Mono.just(clientRequest)
+                            .contextWrite(ctx -> ctx.put("startTime", startTime));
+                })
+        );
+    }
+
+    /**
+     * 응답 로깅 필터
+     * - 응답 상태 및 duration 로깅
+     * - 에러 응답 body 로깅
+     */
+    private ExchangeFilterFunction logResponseFilter() {
+        return ExchangeFilterFunction.ofResponseProcessor(clientResponse ->
+                Mono.deferContextual(contextView -> {
+                    long startTime = contextView.<Long>getOrEmpty("startTime")
+                            .orElse(System.currentTimeMillis());
+                    long duration = System.currentTimeMillis() - startTime;
+                    String requestId = contextView.getOrDefault(MDC_REQUEST_ID_KEY, "UNKNOWN");
+
+                    log.info("<<< External API Response [{}]: status={}, duration={}ms",
+                            requestId,
+                            clientResponse.statusCode().value(),
+                            duration
+                    );
+
+                    if(clientResponse.statusCode().is4xxClientError() || clientResponse.statusCode().is5xxServerError())
+                        return this.logErrorResponse(clientResponse, requestId);
+
+                    return Mono.just(clientResponse);
+                })
+        );
+    }
+
+    /**
+     * 에러 응답 body 로깅
+     */
+    private Mono<ClientResponse> logErrorResponse(ClientResponse response, String reqeustId) {
+        return response.bodyToMono(String.class)
+                .defaultIfEmpty("")
+                .flatMap(body -> {
+                    log.error("Error Response [{}]: status={}, body={}",
+                            reqeustId,
+                            response.statusCode().value(),
+                            body
+                    );
+
+                    //body를 다시 response에 설정(downstream에서 사용 가능하도록)
+                    ClientResponse newResponse = ClientResponse.from(response)
+                            .body(body)
+                            .build();
+
+                    return Mono.just(newResponse);
+                })
+                .onErrorResume(e -> {
+                    log.warn("Failed to read error response body: {}", e.getMessage());
+                    return Mono.just(response);
+                });
+    }
+
+}
