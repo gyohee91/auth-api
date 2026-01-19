@@ -5,31 +5,94 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @Slf4j
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 1)
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class LoggingFilter extends OncePerRequestFilter {
+    private static final String REQUEST_ID_HEADER = "X-Request-Id";
+    private static final String MDC_REQUEST_ID_KEY = "requestId";
+    private static final List<String> EXCLUDE_PATHS = Arrays.asList(
+            "/v3/api-docs",
+            "/swagger-ui",
+            "/actuator/health",
+            "/actuator/prometheus",
+            "/favicon.ico"
+    );
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // Request/Response를 여러 번 읽을 수 있도록 래핑
+        //Wrapper 적용
+        ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
+        ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
 
-        long startTime = System.currentTimeMillis();
+        try {
+            //RequestId 처리
+            String requestId = Optional.ofNullable(request.getHeader(REQUEST_ID_HEADER))
+                    .filter(id -> !id.isBlank())
+                    .orElse(UUID.randomUUID().toString());
 
-        filterChain.doFilter(request, response);
+            MDC.put(MDC_REQUEST_ID_KEY, requestId);
+            responseWrapper.setHeader(REQUEST_ID_HEADER, requestId);
 
-        long duration = System.currentTimeMillis() - startTime;
+            //요청 로깅
+            this.logRequest(requestWrapper, requestId);
 
-        log.info("[HTTP] {} {} -> {} ({}ms)",
+            long startTime = System.currentTimeMillis();
+
+            //실제 요청 처리
+            filterChain.doFilter(requestWrapper, responseWrapper);
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            //응답 로깅
+            this.logResponse(requestWrapper, responseWrapper, duration);
+
+            //응답 복사
+            responseWrapper.copyBodyToResponse();
+        } finally {
+            MDC.clear();
+        }
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return EXCLUDE_PATHS.stream().anyMatch(request.getRequestURI()::startsWith);
+    }
+
+    private void logRequest(ContentCachingRequestWrapper request, String requestId) {
+        log.info(">>> [{}] {} {} - Client: {}",
+                requestId,
+                request.getMethod(),
+                Objects.nonNull(request.getQueryString()) ?
+                        request.getRequestURI() + "?" + request.getQueryString() : request.getRequestURI(),
+                request.getRemoteAddr()
+        );
+
+        log.debug("Request Body: {}", new String(request.getContentAsByteArray(), StandardCharsets.UTF_8));
+    }
+
+    private void logResponse(ContentCachingRequestWrapper request, ContentCachingResponseWrapper response, long duration) {
+        log.info("<<< {} {} - Status: {} - {}ms",
                 request.getMethod(),
                 request.getRequestURI(),
                 response.getStatus(),
-                duration);
+                duration
+        );
+
+        if(response.getStatus() >= 400) {
+            log.debug("Error Request Body: {}", new String(response.getContentAsByteArray(), StandardCharsets.UTF_8));
+        }
     }
 }
