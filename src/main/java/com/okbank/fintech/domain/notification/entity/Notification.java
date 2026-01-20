@@ -43,4 +43,19 @@ public class Notification extends BaseEntity {
     @Column
     @Comment("예약시간")
     private LocalDateTime scheduledAt;
+
+    @Comment("전송 시각")
+    private LocalDateTime sentAt;
+
+    @Comment("결과 코드")
+    private String resultCode;
+
+    @Comment("에러 메시지")
+    private String errorMessage;
+
+    public void markAsSent(String resultCode) {
+        this.resultCode = resultCode;
+        this.sentAt = LocalDateTime.now();
+        this.errorMessage = null;
+    }
 }

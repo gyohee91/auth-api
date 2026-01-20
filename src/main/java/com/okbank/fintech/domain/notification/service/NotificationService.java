@@ -1,5 +1,6 @@
 package com.okbank.fintech.domain.notification.service;
 
+import com.okbank.fintech.domain.notification.dto.external.SendResultResponse;
 import com.okbank.fintech.domain.notification.dto.request.NotificationSenderRequest;
 import com.okbank.fintech.domain.notification.dto.response.NotificationSenderResponse;
 import com.okbank.fintech.domain.notification.entity.Notification;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotificationService {
     private final NotificationRepository notificationRepository;
+    private final NotificationSenderService senderService;
 
     @Transactional
     public NotificationSenderResponse registerNotification(NotificationSenderRequest request) {
@@ -25,6 +27,12 @@ public class NotificationService {
                 .build();
 
         notificationRepository.save(notification);
+
+        SendResultResponse result = senderService.send(notification);
+
+        if(result.isSuccess()) {
+            notification.markAsSent(result.getResultCode());
+        }
 
         return NotificationSenderResponse.from(notification);
     }

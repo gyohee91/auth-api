@@ -6,19 +6,33 @@ import com.okbank.fintech.domain.notification.entity.Notification;
 import com.okbank.fintech.domain.notification.enums.ChannelType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.Objects;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class SmsSender implements ChannelSender {
     private final WebClient webClient;
+
+    private static final String MDC_REQUEST_ID_KEY = "requestId";
+
+    private static final int MAX_DELAY = 5;
+    private static final Duration PER_ATTEMPT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration RETRY_DELAY = Duration.ofMillis(500);
+    private static final Duration TIMEOUT = Duration.ofSeconds(10);
+
+    @Value("${notification.sender.base-url}")
+    private String baseUrl;
 
     @Override
     public ChannelType getSupportedChannel() {
@@ -34,21 +48,45 @@ public class SmsSender implements ChannelSender {
                 .build();
 
         try {
-            SendResultResponse response = webClient.post()
-                    .uri(ChannelType.SMS.getApiPath())
+            return webClient.post()
+                    .uri(baseUrl + ChannelType.SMS.getApiPath())
                     .bodyValue(request)
                     .retrieve()
                     .bodyToMono(SendResultResponse.class)
-                    .retryWhen(Retry.fixedDelay(2, Duration.ofSeconds(1))
-                            .filter(this::isRetryableException))
-                    .timeout(Duration.ofSeconds(30))
+                    .timeout(PER_ATTEMPT_TIMEOUT)
+                    .retryWhen(
+                            Retry.backoff(MAX_DELAY, RETRY_DELAY)
+                                    .maxBackoff(Duration.ofSeconds(3))
+                                    .filter(this::isRetryableException)
+                                    .doBeforeRetry(retrySignal -> {
+                                        log.warn("Retrying send. ChannelType:{}, Attempt: {}/{}, Reason: {}",
+                                                ChannelType.SMS,
+                                                retrySignal.totalRetries() + 1,
+                                                MAX_DELAY,
+                                                retrySignal.failure().getClass().getSimpleName()
+                                        );
+                                    })
+                                    .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) -> {
+                                        log.error("Max retry attempts ({}) exhausted for {} send", ChannelType.SMS, MAX_DELAY);
+                                        return retrySignal.failure();
+                                    })
+                    )
+                    .timeout(TIMEOUT)
+                    .doOnSuccess(result -> {
+                        if(Objects.nonNull(result) && result.isSuccess()) {
+                            log.info("Sent successfully: ChannelType={}, notificationId={}",
+                                    ChannelType.SMS,
+                                    notification.getId()
+                            );
+                        }
+                    })
+                    .doOnError(e -> log.error("Send encountered error: ChannelType={}, notificationId={}", ChannelType.SMS, notification.getId(), e))
                     .onErrorResume(e -> {
-                        log.error("SMS send failed: notificationId={}", notification.getId(), e);
-                        return Mono.just(new SendResultResponse("FAIL"));
+                        log.error("Send failed: ChannelType={}, notificationId={}", ChannelType.SMS, notification.getId(), e);
+                        return Mono.just(SendResultResponse.fail("Send failed " + e.getMessage()));
                     })
                     .block();
 
-            return response;
         } catch (Exception e) {
             log.error("Unexpected error in {}", ChannelType.SMS, e);
             throw e;
@@ -56,7 +94,19 @@ public class SmsSender implements ChannelSender {
     }
 
     private boolean isRetryableException(Throwable throwable) {
-        return throwable instanceof WebClientResponseException
-                && ((WebClientResponseException) throwable).getStatusCode().is5xxServerError();
+        if(throwable instanceof TimeoutException) {
+            return true;
+        }
+
+        if(throwable instanceof WebClientRequestException) {
+            return true;
+        }
+
+        if(throwable instanceof WebClientResponseException
+                && ((WebClientResponseException) throwable).getStatusCode().is5xxServerError()) {
+            return true;
+        }
+
+        return false;
     }
 }

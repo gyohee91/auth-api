@@ -39,15 +39,13 @@ public class NotificationSenderService {
         ChannelSender sender = senderMap.get(channelType);
         if(Objects.isNull(sender)) {
             log.error("No sender found for channel: {}", channelType);
-            return new SendResultResponse("FAIL");
+            return SendResultResponse.fail("No sender found for channel: " + channelType);
         }
 
         try {
             return sender.send(notification);
         } catch (Exception e) {
-            log.error("Failed to send notification: channelType={}, notificationId={}",
-                    channelType, notification.getId(), e);
-            return new SendResultResponse("FAIL");
+            return SendResultResponse.fail("Failed to send notification: channelType=" + channelType + ", notificationId=" + notification.getId());
         }
     }
 }

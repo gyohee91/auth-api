@@ -39,6 +39,12 @@ jwt:
   access-token-validity: 3600
   refresh-token-validity: 604800
 
+# Notification Sender Server Configuration
+notification:
+  sender:
+    base-url: http://localhost:8090
+    timeout: 30000 # 30초
+
 server:
   servlet:
     context-path: /
