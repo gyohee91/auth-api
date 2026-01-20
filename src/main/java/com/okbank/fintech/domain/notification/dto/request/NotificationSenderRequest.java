@@ -29,5 +29,5 @@ public class NotificationSenderRequest {
 
     @Schema(description = "예약시간", example = "202601161250")
     @Pattern(regexp = "^$|^\\d{12}$", message = "예약시간은 yyyyMMddHHmm 이어야 합니다")
-    private LocalDateTime scheduledAt;
+    private String scheduledAt;
 }

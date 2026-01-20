@@ -29,6 +29,9 @@ public class Notification extends BaseEntity {
     @Comment("발송 타입 ")
     private SendType sendType;
 
+    @Comment("수신자")
+    private String recipient;
+
     @Column(nullable = false, length = 200)
     @Comment("제목")
     private String title;
