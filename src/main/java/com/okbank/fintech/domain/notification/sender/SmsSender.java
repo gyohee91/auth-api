@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.retry.RetryListener;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -19,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 public class SmsSender implements ChannelSender {
     private final RestTemplate restTemplate;
     private final RetryTemplate retryTemplate;
+    private final RetryLoggingListener retryLoggingListener;
 
     private static final int MAX_RETRY_ATTEMPTS = 5;
 
@@ -38,31 +40,37 @@ public class SmsSender implements ChannelSender {
                 .contents(notification.getContents())
                 .build();
 
-        retryTemplate.registerListener(
-                new RetryLoggingListener(notification.getId(), ChannelType.SMS, MAX_RETRY_ATTEMPTS));
+        try {
+            //Retry 시작 전 Context 설정
+            retryLoggingListener.setContext(notification.getId(), ChannelType.SMS, MAX_RETRY_ATTEMPTS);
 
-        SendResultResponse response = retryTemplate.execute(retryContext -> {
-            log.debug("SMS send attempt: notificationId={}, attempt={}/{}",
-                    notification.getId(),
-                    retryContext.getRetryCount() + 1,
-                    MAX_RETRY_ATTEMPTS
+            SendResultResponse response = retryTemplate.execute(
+                    retryContext -> {
+                        log.debug("SMS send attempt: notificationId={}, attempt={}/{}",
+                                notification.getId(),
+                                retryContext.getRetryCount() + 1,
+                                MAX_RETRY_ATTEMPTS
+                        );
+
+                        HttpHeaders headers = new HttpHeaders();
+                        headers.setContentType(MediaType.APPLICATION_JSON);
+                        HttpEntity<SmsRequest> entity = new HttpEntity<>(request, headers);
+
+                        ResponseEntity<SendResultResponse> responseEntity = restTemplate.exchange(
+                                baseUrl + ChannelType.SMS.getApiPath(),
+                                HttpMethod.POST,
+                                entity,
+                                SendResultResponse.class
+                        );
+
+                        return responseEntity.getBody();
+                    }
             );
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<SmsRequest> entity = new HttpEntity<>(request, headers);
 
-            ResponseEntity<SendResultResponse> responseEntity = restTemplate.exchange(
-                    baseUrl + ChannelType.SMS.getApiPath(),
-                    HttpMethod.POST,
-                    entity,
-                    SendResultResponse.class
-            );
-
-            return responseEntity.getBody();
-        });
-
-
-        return response;
+            return response;
+        } finally {
+            retryLoggingListener.clearContext();
+        }
     }
 }

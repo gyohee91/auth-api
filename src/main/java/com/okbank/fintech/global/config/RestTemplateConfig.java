@@ -2,6 +2,8 @@ package com.okbank.fintech.global.config;
 
 import com.okbank.fintech.global.interceptor.LoggingInterceptor;
 import com.okbank.fintech.global.interceptor.RequestIdPropagationInterceptor;
+import com.okbank.fintech.global.listener.RetryLoggingListener;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
@@ -23,7 +25,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Configuration
+@RequiredArgsConstructor
 public class RestTemplateConfig {
+    private final RetryLoggingListener retryLoggingListener;
+
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
     private static final String MDC_REQUEST_ID_KEY = "requestId";
 
@@ -61,6 +66,9 @@ public class RestTemplateConfig {
         FixedBackOffPolicy backOffPolicy = new FixedBackOffPolicy();
         backOffPolicy.setBackOffPeriod(500);
         retryTemplate.setBackOffPolicy(backOffPolicy);
+
+        //RetryListener 등록
+        retryTemplate.registerListener(retryLoggingListener);
 
         return retryTemplate;
     }
