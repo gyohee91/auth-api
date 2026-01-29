@@ -43,6 +43,59 @@ public class WebClientConfig {
                 .build();
     }
 
+    public ExchangeFilterFunction requestIdFilter() {
+        return (request, next) ->
+            Mono.deferContextual(ctx -> {
+                String requestId = ctx.getOrDefault(
+                        MDC_REQUEST_ID_KEY,
+                        Optional.ofNullable(
+                                MDC.get(MDC_REQUEST_ID_KEY)
+                        ).orElse("EXTERNAL-" + UUID.randomUUID())
+                );
+                long startTime = ctx.getOrDefault(
+                        CONTEXT_START_TIME_KEY,
+                        System.currentTimeMillis()
+                );
+
+                ClientRequest newRequest = ClientRequest.from(request)
+                        .header(REQUEST_ID_HEADER, requestId)
+                        .build();
+
+                MDC.put(MDC_REQUEST_ID_KEY, requestId);
+
+                log.info(">>> External API Request [{}] {} {} - Headers={}",
+                        requestId,
+                        newRequest.method(),
+                        newRequest.url(),
+                        newRequest.headers()
+                );
+
+                return next.exchange(newRequest)
+                        .doOnSuccess(response -> {
+                            long duration = System.currentTimeMillis() - startTime;
+                            log.info("<<< External API Request [{}], status={}, duration={}ms",
+                                    request,
+                                    response.statusCode().value(),
+                                    duration
+                            );
+                        })
+                        .doOnError(error -> {
+                            long duration = System.currentTimeMillis() - startTime;
+                            log.error("Error Response [{}], error={}, duration={}ms",
+                                    requestId,
+                                    error.getMessage(),
+                                    duration
+                            );
+                        })
+                        .contextWrite(context -> context
+                                .put(MDC_REQUEST_ID_KEY, requestId)
+                                .put(CONTEXT_START_TIME_KEY, startTime)
+                        );
+            });
+
+    }
+
+
     /**
      * RequestId 전파 필터
      * - MDC에서 추출 또는 신규 생성

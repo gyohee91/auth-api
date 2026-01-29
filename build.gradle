@@ -70,6 +70,10 @@ dependencies {
     //Retryable
     implementation 'org.springframework.retry:spring-retry'
     implementation 'org.springframework:spring-aspects'
+
+    //Kafka
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.apache.kafka:kafka-clients'
 }
 
 tasks.named('test') {

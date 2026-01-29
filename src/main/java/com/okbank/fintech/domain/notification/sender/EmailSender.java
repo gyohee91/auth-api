@@ -53,7 +53,7 @@ public class EmailSender implements ChannelSender {
                     .bodyValue(request)
                     .retrieve()
                     .bodyToMono(SendResultResponse.class)
-                    .timeout(PER_ATTEMPT_TIMEOUT)
+                    //.timeout(PER_ATTEMPT_TIMEOUT)
                     .retryWhen(
                             Retry.backoff(MAX_DELAY, RETRY_DELAY)
                                     .maxBackoff(Duration.ofSeconds(3))
@@ -71,7 +71,7 @@ public class EmailSender implements ChannelSender {
                                         return retrySignal.failure();
                                     })
                     )
-                    .timeout(TIMEOUT)
+                    //.timeout(TIMEOUT)
                     .doOnSuccess(result -> {
                         if(Objects.nonNull(result) && result.isSuccess()) {
                             log.info("Sent successfully: ChannelType={}, notificationId={}",
