@@ -36,18 +36,30 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+
+    #Consumer 설정
     consumer:
-      group-id: notification-consumer-group
+      group-id: notification-group
       auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringSerializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonSerializer
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      enable-auto-commit: false
       properties:
-        spring.json.trusted.packages: "com.okbank.fintech.domain.notification.*"
+        spring.json.trusted.packages: "*"
+
+    #Producer 설정
     producer:
       key-deserializer: org.apache.kafka.common.serialization.StringSerializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
       retries: 3
+      properties:
+        enable.idempotence: true
+        min.in.flight.requests.per.connection: 5
+
+    #Listener 설정
+    listener:
+      ack-mode: manual
 
 jwt:
   secret-key: bXktc3VwZXItc2VjcmV0LWtleS1tdXN0LWJlLWxvbmc=
