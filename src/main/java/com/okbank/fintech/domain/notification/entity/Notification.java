@@ -1,6 +1,8 @@
 package com.okbank.fintech.domain.notification.entity;
 
+import com.okbank.fintech.domain.notification.dto.event.NotificationCreatedEvent;
 import com.okbank.fintech.domain.notification.enums.ChannelType;
+import com.okbank.fintech.domain.notification.enums.NotificationStatus;
 import com.okbank.fintech.domain.notification.enums.SendType;
 import com.okbank.fintech.global.common.BaseEntity;
 import jakarta.persistence.Column;
@@ -40,6 +42,11 @@ public class Notification extends BaseEntity {
     @Comment("내용")
     private String contents;
 
+    @Enumerated(EnumType.STRING)
+    @Comment("발송 상태")
+    @Builder.Default
+    private NotificationStatus notificationStatus = NotificationStatus.PENDING;
+
     @Column
     @Comment("예약시간")
     private LocalDateTime scheduledAt;
@@ -53,9 +60,21 @@ public class Notification extends BaseEntity {
     @Comment("에러 메시지")
     private String errorMessage;
 
-    public void markAsSent(String resultCode) {
-        this.resultCode = resultCode;
+    public void markAsQueued() {
+        //this.resultCode = resultCode;
+        this.notificationStatus = NotificationStatus.QUEUED;
         this.sentAt = LocalDateTime.now();
         this.errorMessage = null;
+    }
+
+    public NotificationCreatedEvent toEvent() {
+        return NotificationCreatedEvent.builder()
+                .notificationId(getId())
+                .channelType(channelType)
+                .recipient(recipient)
+                .title(title)
+                .contents(contents)
+                .retryCount(0)
+                .build();
     }
 }

@@ -1,10 +1,11 @@
 package com.okbank.fintech.global.config;
 
+import com.okbank.fintech.global.util.RequestIdPropagator;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -22,7 +23,10 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class WebClientConfig {
+    private final RequestIdPropagator requestIdPropagator;
+
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
     private static final String MDC_REQUEST_ID_KEY = "requestId";
     private static final String CONTEXT_START_TIME_KEY = "startTime";
@@ -48,9 +52,7 @@ public class WebClientConfig {
             Mono.deferContextual(ctx -> {
                 String requestId = ctx.getOrDefault(
                         MDC_REQUEST_ID_KEY,
-                        Optional.ofNullable(
-                                MDC.get(MDC_REQUEST_ID_KEY)
-                        ).orElse("EXTERNAL-" + UUID.randomUUID())
+                        Optional.ofNullable(requestIdPropagator.getCurrentRequestId()).orElse("EXTERNAL-" + UUID.randomUUID())
                 );
                 long startTime = ctx.getOrDefault(
                         CONTEXT_START_TIME_KEY,
@@ -61,7 +63,7 @@ public class WebClientConfig {
                         .header(REQUEST_ID_HEADER, requestId)
                         .build();
 
-                MDC.put(MDC_REQUEST_ID_KEY, requestId);
+                requestIdPropagator.setRequestId(requestId);
 
                 log.info(">>> External API Request [{}] {} {} - Headers={}",
                         requestId,
@@ -106,7 +108,7 @@ public class WebClientConfig {
             long startTime = System.currentTimeMillis();
 
             //MDC에 없으면 새로 생성(외부 API 호출이 최초 진입점인 경우)
-            String requestId = Optional.ofNullable(MDC.get(MDC_REQUEST_ID_KEY))
+            String requestId = Optional.ofNullable(requestIdPropagator.getCurrentRequestId())
                     .filter(id -> !id.isBlank())
                     .orElse("EXTERNAL-" + UUID.randomUUID());
 

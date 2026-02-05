@@ -1,9 +1,9 @@
 package com.okbank.fintech.global.listener;
 
 import com.okbank.fintech.domain.notification.enums.ChannelType;
+import com.okbank.fintech.global.util.RequestIdPropagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.retry.RetryCallback;
 import org.springframework.retry.RetryContext;
 import org.springframework.retry.RetryListener;
@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @RequiredArgsConstructor
 public class RetryLoggingListener implements RetryListener {
-    private static final String MDC_REQUEST_ID_KEY = "requestId";
+    private final RequestIdPropagator requestIdPropagator;
 
     private final Map<Thread, Long> notificationIdMap = new ConcurrentHashMap<>();
     private final Map<Thread, ChannelType> channelTypeMap = new ConcurrentHashMap<>();
@@ -60,7 +60,7 @@ public class RetryLoggingListener implements RetryListener {
         ChannelType channelType = channelTypeMap.get(currentThread);
         Integer maxAttempts = maxAttemptMap.get(currentThread);
 
-        String requestId = MDC.get(MDC_REQUEST_ID_KEY);
+        String requestId = requestIdPropagator.getCurrentRequestId();
 
         //최종 실패 시에만 로깅
         if(Objects.nonNull(throwable) && context.getRetryCount() >= (Objects.nonNull(maxAttempts) ? maxAttempts : 0)) {
@@ -80,7 +80,7 @@ public class RetryLoggingListener implements RetryListener {
         ChannelType channelType = channelTypeMap.get(currentThread);
         Integer maxAttempts = maxAttemptMap.get(currentThread);
 
-        String requestId = MDC.get(MDC_REQUEST_ID_KEY);
+        String requestId = requestIdPropagator.getCurrentRequestId();
 
         //재시도가 남아있을 때만 로깅
         if(context.getRetryCount() < (Objects.nonNull(maxAttempts) ? maxAttempts : 0)) {

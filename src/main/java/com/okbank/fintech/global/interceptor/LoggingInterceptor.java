@@ -1,7 +1,8 @@
 package com.okbank.fintech.global.interceptor;
 
+import com.okbank.fintech.global.util.RequestIdPropagator;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
@@ -15,13 +16,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
+@RequiredArgsConstructor
 public class LoggingInterceptor implements ClientHttpRequestInterceptor {
-    private static final String REQUEST_ID_HEADER = "X-Request-Id";
-    private static final String MDC_REQUEST_ID_KEY = "requestId";
+    private final RequestIdPropagator requestIdPropagator;
 
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
-        String requestId = Optional.ofNullable(MDC.get(MDC_REQUEST_ID_KEY))
+        String requestId = Optional.ofNullable(requestIdPropagator.getCurrentRequestId())
                 .orElse("UNKNOWN");
 
         long startTime = System.currentTimeMillis();

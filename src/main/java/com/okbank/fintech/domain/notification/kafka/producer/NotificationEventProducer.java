@@ -1,29 +1,33 @@
 package com.okbank.fintech.domain.notification.kafka.producer;
 
 import com.okbank.fintech.domain.notification.dto.event.NotificationCreatedEvent;
+import com.okbank.fintech.domain.notification.enums.ChannelType;
 import com.okbank.fintech.global.util.RequestIdPropagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class NotificationEventProducer {
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaTemplate<String, NotificationCreatedEvent> kafkaTemplate;
     private final RequestIdPropagator requestIdPropagator;
 
     private static final String TOPIC_NOTIFICATION_CREATED = "notification.created";
 
-    public void publishNotificationCreated(NotificationCreatedEvent event) {
+    public CompletableFuture<SendResult<String, NotificationCreatedEvent>> publishNotificationCreated(NotificationCreatedEvent event) {
         String key = event.getNotificationId().toString();
 
-        ProducerRecord<String, Object> record = new ProducerRecord<>(
+        ProducerRecord<String, NotificationCreatedEvent> record = new ProducerRecord<>(
                 TOPIC_NOTIFICATION_CREATED,
-                null,
+                null,   //partition은 key 기반 자동 분배
                 key,
                 event
         );
@@ -31,35 +35,39 @@ public class NotificationEventProducer {
         //requestId 전파
         requestIdPropagator.propagateToKafka(record);
 
-        try {
-            kafkaTemplate.send(record)
-                    .thenApply(result -> {
-                        RecordMetadata metadata = result.getRecordMetadata();
-                        log.info("Successfully published: id={}, key={}, partition={}, offset={}",
-                                event.getNotificationId(),
-                                key,
-                                metadata.partition(),
-                                metadata.offset()
-                        );
-                        return result;
-                    })
-                    .exceptionally(ex ->{
-                        log.error("Failed to publish notification: id={}, key: {}",
-                                event.getNotificationId(), key, ex);
-                        throw new RuntimeException(ex);
-                    });
-        } catch (Exception e) {
-            log.error("Error while sending event to kafka", e);
-        }
+        record.headers().add("X-Channel-Type", event.getChannelType().name().getBytes(StandardCharsets.UTF_8));
+        record.headers().add("X-Created-At", String.valueOf(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
+
+        return kafkaTemplate.send(record);
     }
 
     public void publishRetryEvent(String channel, NotificationCreatedEvent event) {
         String topic = "notification.retry." + channel.toLowerCase();
         String key = event.getNotificationId().toString();
-        ProducerRecord<String, Object> record = new ProducerRecord<>(topic, key, event);
+
+        ProducerRecord<String, NotificationCreatedEvent> record = new ProducerRecord<>(topic, key, event);
         requestIdPropagator.propagateToKafka(record);
 
-        kafkaTemplate.send(record);
-        log.info("Published retry event to topic: {}", topic);
+        record.headers().add("X-Retry-Count", String.valueOf(event.getRetryCount()).getBytes(StandardCharsets.UTF_8));
+
+        kafkaTemplate.send(record)
+                        .thenAccept(result ->
+                                log.info("Retry event published: id={}, retryCount={}",
+                                        event.getNotificationId(),
+                                        event.getRetryCount()
+                        ))
+                .exceptionally(ex -> {
+                    log.error("Failed to publish retry event: id={}",
+                            event.getNotificationId(), ex);
+                    return null;
+                });
+    }
+
+    private String getRetryTopic(ChannelType channelType) {
+        return switch (channelType) {
+            case SMS -> "notification.retry.sms";
+            case EMAIL -> "notification.retry.email";
+            case KAKAOTALK -> "notification.retry.kakaotalk";
+        };
     }
 }

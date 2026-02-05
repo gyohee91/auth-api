@@ -1,11 +1,12 @@
 package com.okbank.fintech.global.filter;
 
+import com.okbank.fintech.global.util.RequestIdPropagator;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -20,9 +21,11 @@ import java.util.*;
 @Slf4j
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@RequiredArgsConstructor
 public class LoggingFilter extends OncePerRequestFilter {
+    private final RequestIdPropagator requestIdPropagator;
+
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
-    private static final String MDC_REQUEST_ID_KEY = "requestId";
     private static final List<String> EXCLUDE_PATHS = Arrays.asList(
             "/v3/api-docs",
             "/swagger-ui",
@@ -44,7 +47,7 @@ public class LoggingFilter extends OncePerRequestFilter {
                     .filter(id -> !id.isBlank())
                     .orElse(UUID.randomUUID().toString());
 
-            MDC.put(MDC_REQUEST_ID_KEY, requestId);
+            requestIdPropagator.setRequestId(requestId);
             responseWrapper.setHeader(REQUEST_ID_HEADER, requestId);
 
             //요청 로깅
@@ -63,7 +66,7 @@ public class LoggingFilter extends OncePerRequestFilter {
             //응답 복사
             responseWrapper.copyBodyToResponse();
         } finally {
-            MDC.clear();
+            requestIdPropagator.clear();
         }
     }
 

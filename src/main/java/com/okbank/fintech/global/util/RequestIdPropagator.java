@@ -14,13 +14,29 @@ import java.util.UUID;
 @Slf4j
 @Component
 public class RequestIdPropagator {
+    private static final String REQUEST_ID_KEY = "requestId";
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
+
+    /**
+     * 현재 RequestId 조회
+     */
+    public String getCurrentRequestId() {
+        return MDC.get(REQUEST_ID_KEY);
+    }
+
+    /**
+     * RequestId 설정
+     */
+    public void setRequestId(String requestId) {
+        if(Objects.nonNull(requestId) && !requestId.isBlank())
+            MDC.put(REQUEST_ID_KEY, requestId);
+    }
 
     /**
      * Kafka Producer에서 호출: MDC의 requestId를 Kafka Header에 넣기
      */
     public void propagateToKafka(ProducerRecord<String, ?> record) {
-        String requestId = MDC.get(REQUEST_ID_HEADER);
+        String requestId = this.getCurrentRequestId();
         if(Objects.nonNull(requestId)) {
             record.headers().add(REQUEST_ID_HEADER, requestId.getBytes(StandardCharsets.UTF_8));
             log.debug("Propagated requestId to Kafka: {}", requestId);
@@ -37,11 +53,11 @@ public class RequestIdPropagator {
 
         if(Objects.nonNull(header)) {
             String requestId = new String(header.value(), StandardCharsets.UTF_8);
-            MDC.put(REQUEST_ID_HEADER, requestId);
+            this.setRequestId(requestId);
             log.debug("Restored requestId from Kafka: {}", requestId);
         } else {
             String newRequestId = UUID.randomUUID().toString();
-            MDC.put(REQUEST_ID_HEADER, newRequestId);
+            this.setRequestId(newRequestId);
             log.debug("Generated new requestId for Kafka consumer: {}", newRequestId);
         }
     }
@@ -50,6 +66,6 @@ public class RequestIdPropagator {
      * 처리 완료 후 MDC 정리
      */
     public void clear() {
-        MDC.clear();
+        MDC.remove(REQUEST_ID_KEY);
     }
 }

@@ -1,6 +1,7 @@
 package com.okbank.fintech.global.interceptor;
 
-import org.slf4j.MDC;
+import com.okbank.fintech.global.util.RequestIdPropagator;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
@@ -13,18 +14,20 @@ import java.util.UUID;
 /**
  * requestId 전파 Interceptor
  */
+@RequiredArgsConstructor
 public class RequestIdPropagationInterceptor implements ClientHttpRequestInterceptor {
+    private final RequestIdPropagator requestIdPropagator;
+
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
-    private static final String MDC_REQUEST_ID_KEY = "requestId";
 
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
         //MDC에서 RequestId 가져오기(없으면 생성)
-        String requestId = Optional.ofNullable(MDC.get(MDC_REQUEST_ID_KEY))
+        String requestId = Optional.ofNullable(requestIdPropagator.getCurrentRequestId())
                 .filter(id -> !id.isBlank())
                 .orElseGet(() -> {
                     String newRequestId = "EXTERNAL-" + UUID.randomUUID();
-                    MDC.put(MDC_REQUEST_ID_KEY, newRequestId);
+                    requestIdPropagator.setRequestId(newRequestId);
                     return newRequestId;
                 });
 

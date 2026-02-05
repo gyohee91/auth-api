@@ -11,6 +11,7 @@ public class NotificationCreatedEvent {
     private Long notificationId;
     private String recipient;
     private ChannelType channelType;
-    private String content;
+    private String title;
+    private String contents;
     private Integer retryCount;
 }
