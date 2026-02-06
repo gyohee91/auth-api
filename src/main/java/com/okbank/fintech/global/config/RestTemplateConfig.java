@@ -3,6 +3,7 @@ package com.okbank.fintech.global.config;
 import com.okbank.fintech.global.interceptor.LoggingInterceptor;
 import com.okbank.fintech.global.interceptor.RequestIdPropagationInterceptor;
 import com.okbank.fintech.global.listener.RetryLoggingListener;
+import com.okbank.fintech.global.util.RequestIdPropagator;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -27,6 +28,7 @@ import java.util.UUID;
 @Configuration
 @RequiredArgsConstructor
 public class RestTemplateConfig {
+    private final RequestIdPropagator requestIdPropagator;
     private final RetryLoggingListener retryLoggingListener;
 
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
@@ -38,7 +40,7 @@ public class RestTemplateConfig {
                 .connectTimeout(Duration.ofSeconds(5))
                 .readTimeout(Duration.ofSeconds(10))
                 .additionalInterceptors(
-                        new RequestIdPropagationInterceptor(),
+                        new RequestIdPropagationInterceptor(requestIdPropagator),
                         new LoggingInterceptor()
                 )
                 .requestFactory(() -> new BufferingClientHttpRequestFactory(

@@ -35,6 +35,10 @@ public class KafkaConfig {
         configs.put(ProducerConfig.ACKS_CONFIG, "all");
         configs.put(ProducerConfig.RETRIES_CONFIG, 3);
         configs.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+        configs.put(ProducerConfig.LINGER_MS_CONFIG, 10);
+        configs.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+        configs.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "gzip");
 
         return new DefaultKafkaProducerFactory<>(configs);
     }
@@ -44,6 +48,10 @@ public class KafkaConfig {
         return new KafkaTemplate<>(this.producerFactory());
     }
 
+    /**
+     * Consumer 설정
+     * @return
+     */
     @Bean
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> configs = new HashMap<>();
@@ -52,8 +60,11 @@ public class KafkaConfig {
         configs.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configs.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         configs.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        configs.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         configs.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        configs.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 10);
+        configs.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        configs.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        configs.put(JsonDeserializer.VALUE_DEFAULT_TYPE, NotificationCreatedEvent.class.getName());
 
         return new DefaultKafkaConsumerFactory<>(configs);
     }

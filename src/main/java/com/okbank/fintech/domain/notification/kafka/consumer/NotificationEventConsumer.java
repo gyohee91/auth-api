@@ -1,7 +1,11 @@
 package com.okbank.fintech.domain.notification.kafka.consumer;
 
 import com.okbank.fintech.domain.notification.dto.event.NotificationCreatedEvent;
+import com.okbank.fintech.domain.notification.dto.external.SendResultResponse;
+import com.okbank.fintech.domain.notification.entity.Notification;
 import com.okbank.fintech.domain.notification.kafka.producer.NotificationEventProducer;
+import com.okbank.fintech.domain.notification.repository.NotificationRepository;
+import com.okbank.fintech.domain.notification.service.NotificationSenderService;
 import com.okbank.fintech.global.util.RequestIdPropagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +20,8 @@ import org.springframework.stereotype.Component;
 public class NotificationEventConsumer {
     private final RequestIdPropagator requestIdPropagator;
     private final NotificationEventProducer eventProducer;
+    private final NotificationRepository notificationRepository;
+    private final NotificationSenderService senderService;
 
     private static final int MAX_RETRY_COUNT = 5;
 
@@ -33,6 +39,17 @@ public class NotificationEventConsumer {
         try {
             requestIdPropagator.restoreFromKafka(record);
 
+            Notification notification = notificationRepository.findById(event.getNotificationId())
+                    .orElseThrow(() -> new RuntimeException("Notification not found: " + event.getNotificationId()));
+
+            SendResultResponse result = senderService.send(notification);
+
+            if(result.isSuccess()) {
+                notification.markAsSent(result.getResultCode());
+                log.info("Notification sent successfully: notificationId={}, channelType={}",
+                        notification.getId(), notification.getChannelType());
+            }
+
             //수동 커밋
             ack.acknowledge();
 
@@ -41,10 +58,18 @@ public class NotificationEventConsumer {
         } catch (Exception e) {
             //실패 시 재시도 토픽으로 발행
             if(event.getRetryCount() + 1 <= MAX_RETRY_COUNT) {
-                eventProducer.publishRetryEvent(event.getChannelType().name(), event);
+                //재시도
+                NotificationCreatedEvent retryEvent = event.increaseRetryCount();
+                eventProducer.publishRetryEvent(event.getChannelType().name(), retryEvent);
+
                 log.warn("Published to retry topic - ID: {}", event.getNotificationId());
             }
             else {
+                notificationRepository.findById(event.getNotificationId())
+                                .ifPresent(notification -> {
+                                    notification.markAsFail(e.getMessage());
+                                });
+
                 log.error("Max Retry exceeded: id={}", event.getNotificationId());
             }
             ack.acknowledge();

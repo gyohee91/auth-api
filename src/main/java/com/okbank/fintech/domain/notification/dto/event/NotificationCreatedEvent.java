@@ -14,4 +14,15 @@ public class NotificationCreatedEvent {
     private String title;
     private String contents;
     private Integer retryCount;
+
+    public NotificationCreatedEvent increaseRetryCount() {
+        return NotificationCreatedEvent.builder()
+                .notificationId(notificationId)
+                .recipient(recipient)
+                .channelType(channelType)
+                .title(title)
+                .contents(contents)
+                .retryCount(retryCount + 1)
+                .build();
+    }
 }

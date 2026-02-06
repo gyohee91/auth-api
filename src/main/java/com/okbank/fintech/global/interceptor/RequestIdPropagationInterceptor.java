@@ -12,7 +12,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * requestId 전파 Interceptor
+ * 역할: requestId를 외부 API Header에 전파
+ * 목적: 분산 추적
  */
 @RequiredArgsConstructor
 public class RequestIdPropagationInterceptor implements ClientHttpRequestInterceptor {

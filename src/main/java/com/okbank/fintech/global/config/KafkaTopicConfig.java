@@ -26,6 +26,8 @@ public class KafkaTopicConfig {
         return TopicBuilder.name("notification.created")
                 .partitions(3)
                 .replicas(1)
+                .config("retention.ms", "604800000")
+                .config("compression.type", "gzip")
                 .build();
     }
 

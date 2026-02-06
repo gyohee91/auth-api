@@ -61,10 +61,19 @@ public class Notification extends BaseEntity {
     private String errorMessage;
 
     public void markAsQueued() {
-        //this.resultCode = resultCode;
         this.notificationStatus = NotificationStatus.QUEUED;
+    }
+
+    public void markAsSent(String resultCode) {
+        this.resultCode = resultCode;
+        this.notificationStatus = NotificationStatus.SENT;
         this.sentAt = LocalDateTime.now();
         this.errorMessage = null;
+    }
+
+    public void markAsFail(String errorMessage) {
+        this.notificationStatus = NotificationStatus.FAILED;
+        this.errorMessage = errorMessage;
     }
 
     public NotificationCreatedEvent toEvent() {

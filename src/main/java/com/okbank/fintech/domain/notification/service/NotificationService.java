@@ -11,6 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Producer: 메시지 발행
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,8 +33,8 @@ public class NotificationService {
 
         notificationRepository.save(notification);
 
-        //SendResultResponse result = senderService.send(notification);
         try{
+            //Kafka로 이벤트 발행
             NotificationCreatedEvent event = notification.toEvent();
             eventProducer.publishNotificationCreated(event)
                     .thenAccept(result -> {
