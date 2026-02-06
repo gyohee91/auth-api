@@ -25,6 +25,11 @@ public class NotificationEventConsumer {
 
     private static final int MAX_RETRY_COUNT = 5;
 
+    /**
+     * 최초 알림 이벤트 소비
+     * @param record
+     * @param ack
+     */
     @KafkaListener(
             topics = "notification.created",
             groupId = "notification-group",
@@ -72,7 +77,7 @@ public class NotificationEventConsumer {
 
                 log.error("Max Retry exceeded: id={}", event.getNotificationId());
             }
-            ack.acknowledge();
+            ack.acknowledge();  //실패해도 커밋 (재시도 토픽으로 전송)
         }
 
     }

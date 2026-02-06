@@ -15,10 +15,14 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.retry.backoff.FixedBackOffPolicy;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,28 +54,28 @@ public class RestTemplateConfig {
     }
 
     /**
-     * RetryTemplate (5회, 500ms 간격)
+     * RestTemplate 재시도 전략
+     * - 대상: 네트워크 순간 오류만
+     * - 횟수: 2회(원본 1회 + 재시도 1회)
+     * - 백오프: 100ms 고정
+     * - 5xx 에러는 Kafka 재시도로 위임
      */
     @Bean
     public RetryTemplate retryTemplate() {
-        RetryTemplate retryTemplate = new RetryTemplate();
-
-        //재시도 정책
-        Map<Class<? extends Throwable>, Boolean> retryableException = new HashMap<>();
-        retryableException.put(HttpServerErrorException.class, true);
-        retryableException.put(ResourceAccessException.class, true);
-
-        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy(5, retryableException);
-        retryTemplate.setRetryPolicy(retryPolicy);
-
-        //백오프 정책
-        FixedBackOffPolicy backOffPolicy = new FixedBackOffPolicy();
-        backOffPolicy.setBackOffPeriod(500);
-        retryTemplate.setBackOffPolicy(backOffPolicy);
-
-        //RetryListener 등록
-        retryTemplate.registerListener(retryLoggingListener);
-
-        return retryTemplate;
+        return RetryTemplate.builder()
+                //네트워크 오류만 재시도
+                .retryOn(SocketTimeoutException.class)
+                .retryOn(ConnectException.class)
+                .retryOn(NoRouteToHostException.class)
+                //Http 에러는 재시도 안함 (Kafka로 위임)
+                .notRetryOn(HttpServerErrorException.class)
+                .notRetryOn(HttpClientErrorException.class)
+                //최대 2회 시도
+                .maxAttempts(2)
+                //100ms 고정 백오프
+                .fixedBackoff(100)
+                //리스너
+                .withListener(retryLoggingListener)
+                .build();
     }
 }

@@ -22,7 +22,7 @@ public class SmsSender implements ChannelSender {
     private final RetryTemplate retryTemplate;
     private final RetryLoggingListener retryLoggingListener;
 
-    private static final int MAX_RETRY_ATTEMPTS = 5;
+    private static final int MAX_RETRY_ATTEMPTS = 2;
 
     @Value("${notification.sender.base-url}")
     private String baseUrl;

@@ -22,6 +22,11 @@ public class NotificationEventProducer {
 
     private static final String TOPIC_NOTIFICATION_CREATED = "notification.created";
 
+    /**
+     * 알림 이벤트 발행
+     * @param event
+     * @return
+     */
     public CompletableFuture<SendResult<String, NotificationCreatedEvent>> publishNotificationCreated(NotificationCreatedEvent event) {
         String key = event.getNotificationId().toString();
 
@@ -35,17 +40,24 @@ public class NotificationEventProducer {
         //requestId 전파
         requestIdPropagator.propagateToKafka(record);
 
+        //추가 메타 데이터
         record.headers().add("X-Channel-Type", event.getChannelType().name().getBytes(StandardCharsets.UTF_8));
         record.headers().add("X-Created-At", String.valueOf(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
 
         return kafkaTemplate.send(record);
     }
 
+    /**
+     * 재시도 이벤트 발행
+     * @param channel
+     * @param event
+     */
     public void publishRetryEvent(String channel, NotificationCreatedEvent event) {
         String topic = "notification.retry." + channel.toLowerCase();
         String key = event.getNotificationId().toString();
 
         ProducerRecord<String, NotificationCreatedEvent> record = new ProducerRecord<>(topic, key, event);
+        //requestId 유지
         requestIdPropagator.propagateToKafka(record);
 
         record.headers().add("X-Retry-Count", String.valueOf(event.getRetryCount()).getBytes(StandardCharsets.UTF_8));

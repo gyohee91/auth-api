@@ -36,6 +36,10 @@ public class NotificationService {
         try{
             //Kafka로 이벤트 발행
             NotificationCreatedEvent event = notification.toEvent();
+
+            //Kafka Broker가 메시지를 Topic의 Partition에 저장
+            // - Key 기반 Partition 분배
+            // - Offset 부여()
             eventProducer.publishNotificationCreated(event)
                     .thenAccept(result -> {
                         log.info("Event published successfully: notificationId={}, partition={}, offset={}",
@@ -48,6 +52,7 @@ public class NotificationService {
                         log.error("Failed to publish event: notificationId={}", event.getNotificationId(), ex);
                         return null;
                     });
+            //상태 업데이트
             notification.markAsQueued();
 
         } catch (Exception e) {
