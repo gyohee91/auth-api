@@ -6,6 +6,7 @@ import com.okbank.fintech.domain.notification.entity.Notification;
 import com.okbank.fintech.domain.notification.kafka.producer.NotificationEventProducer;
 import com.okbank.fintech.domain.notification.repository.NotificationRepository;
 import com.okbank.fintech.domain.notification.service.NotificationSenderService;
+import com.okbank.fintech.domain.notification.util.NotificationContextPropagator;
 import com.okbank.fintech.global.util.RequestIdPropagator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ public class NotificationEventConsumer {
     private final NotificationEventProducer eventProducer;
     private final NotificationRepository notificationRepository;
     private final NotificationSenderService senderService;
+    private final NotificationContextPropagator notificationContextPropagator;
 
     private static final int MAX_RETRY_COUNT = 5;
 
@@ -43,6 +45,13 @@ public class NotificationEventConsumer {
 
         try {
             requestIdPropagator.restoreFromKafka(record);
+
+            notificationContextPropagator.setNotificationContext(
+                    event.getNotificationId(),
+                    event.getChannelType()
+            );
+
+            log.info("Consuming notification"); //requestId, notificationId, channelType 자동 포함
 
             Notification notification = notificationRepository.findById(event.getNotificationId())
                     .orElseThrow(() -> new RuntimeException("Notification not found: " + event.getNotificationId()));
@@ -78,6 +87,10 @@ public class NotificationEventConsumer {
                 log.error("Max Retry exceeded: id={}", event.getNotificationId());
             }
             ack.acknowledge();  //실패해도 커밋 (재시도 토픽으로 전송)
+        } finally {
+            //모든 Context 정리
+            requestIdPropagator.clear();
+            notificationContextPropagator.clear();
         }
 
     }

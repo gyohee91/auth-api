@@ -4,6 +4,7 @@ import com.okbank.fintech.domain.notification.dto.external.SendResultResponse;
 import com.okbank.fintech.domain.notification.dto.external.SmsRequest;
 import com.okbank.fintech.domain.notification.entity.Notification;
 import com.okbank.fintech.domain.notification.enums.ChannelType;
+import com.okbank.fintech.domain.notification.util.NotificationContextPropagator;
 import com.okbank.fintech.global.listener.RetryLoggingListener;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ public class SmsSender implements ChannelSender {
     private final RestTemplate restTemplate;
     private final RetryTemplate retryTemplate;
     private final RetryLoggingListener retryLoggingListener;
+    private final NotificationContextPropagator notificationContextPropagator;
 
     private static final int MAX_RETRY_ATTEMPTS = 2;
 
@@ -41,8 +43,14 @@ public class SmsSender implements ChannelSender {
                 .build();
 
         try {
-            //Retry 시작 전 Context 설정
-            retryLoggingListener.setContext(notification.getId(), ChannelType.SMS, MAX_RETRY_ATTEMPTS);
+            //알림 Context 설정
+            notificationContextPropagator.setNotificationContext(
+                    notification.getId(),
+                    notification.getChannelType()
+            );
+
+            //재시도 컨텍스트 설정 (재시도 횟수만)
+            retryLoggingListener.setRetryContext( MAX_RETRY_ATTEMPTS);
 
             SendResultResponse response = retryTemplate.execute(
                     retryContext -> {
@@ -70,7 +78,8 @@ public class SmsSender implements ChannelSender {
 
             return response;
         } finally {
-            retryLoggingListener.clearContext();
+            //재시도 컨텍스트만 정리 (알림 컨텍스트는 상위에서 관리)
+            retryLoggingListener.clearRetryContext();
         }
     }
 }

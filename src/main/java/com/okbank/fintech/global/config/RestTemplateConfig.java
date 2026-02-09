@@ -5,41 +5,34 @@ import com.okbank.fintech.global.interceptor.RequestIdPropagationInterceptor;
 import com.okbank.fintech.global.listener.RetryLoggingListener;
 import com.okbank.fintech.global.util.RequestIdPropagator;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.MDC;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.BufferingClientHttpRequestFactory;
-import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.retry.backoff.FixedBackOffPolicy;
-import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 @Configuration
 @RequiredArgsConstructor
 public class RestTemplateConfig {
-    private final RequestIdPropagator requestIdPropagator;
     private final RetryLoggingListener retryLoggingListener;
 
     private static final String REQUEST_ID_HEADER = "X-Request-Id";
     private static final String MDC_REQUEST_ID_KEY = "requestId";
 
     @Bean
-    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+    public RestTemplate restTemplate(
+            RestTemplateBuilder builder,
+            RequestIdPropagator requestIdPropagator
+    ) {
         return builder
                 .connectTimeout(Duration.ofSeconds(5))
                 .readTimeout(Duration.ofSeconds(10))
@@ -67,9 +60,6 @@ public class RestTemplateConfig {
                 .retryOn(SocketTimeoutException.class)
                 .retryOn(ConnectException.class)
                 .retryOn(NoRouteToHostException.class)
-                //Http 에러는 재시도 안함 (Kafka로 위임)
-                .notRetryOn(HttpServerErrorException.class)
-                .notRetryOn(HttpClientErrorException.class)
                 //최대 2회 시도
                 .maxAttempts(2)
                 //100ms 고정 백오프
