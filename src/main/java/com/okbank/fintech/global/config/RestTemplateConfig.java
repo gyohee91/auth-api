@@ -25,9 +25,6 @@ import java.time.Duration;
 public class RestTemplateConfig {
     private final RetryLoggingListener retryLoggingListener;
 
-    private static final String REQUEST_ID_HEADER = "X-Request-Id";
-    private static final String MDC_REQUEST_ID_KEY = "requestId";
-
     @Bean
     public RestTemplate restTemplate(
             RestTemplateBuilder builder,

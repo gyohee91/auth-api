@@ -1,17 +1,17 @@
-package com.okbank.fintech.domain.notification.kafka;
+package com.okbank.fintech.global.config;
 
-import com.okbank.fintech.domain.notification.dto.event.NotificationCreatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class KafkaConnectionTest implements CommandLineRunner {
+@ConditionalOnProperty(name = "spring.kafka.health-check.enabled", havingValue = "true", matchIfMissing = true)
+public class KafkaHealthCheck implements CommandLineRunner {
     private final KafkaTemplate<String, ?> kafkaTemplate;
 
     @Override
